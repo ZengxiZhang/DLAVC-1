@@ -26,30 +26,30 @@ if not os.path.exists(sf):
 # load device config
 cuda = config['environment']['cuda']
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
+cuda = 0
 # load dataloader
 it = config['train']['image_root']
 iz = config['train']['image_size']
 bs = config['train']['batch_size']
+bs = 1
 data = Dataset(it, iz, cuda)
 loader = DataLoader(data, bs, cuda)
-
 # load color transform network
 net_col_g = col.Generator(2)
-net_col_g = nn.DataParallel(net_col_g)
+# net_col_g = nn.DataParallel(net_col_g)
 net_col_g = net_col_g.cuda() if cuda else net_col_g
 
 net_col_d = col.Discriminator()
-net_col_d = nn.DataParallel(net_col_d)
+# net_col_d = nn.DataParallel(net_col_d)
 net_col_d = net_col_d.cuda() if cuda else net_col_d
 
 # load temporal constraint network
 net_tem_g = tem.Generator(64)
-net_tem_g = nn.DataParallel(net_tem_g)
+# net_tem_g = nn.DataParallel(net_tem_g)
 net_tem_g = net_tem_g.cuda() if cuda else net_tem_g
 
 net_tem_d = tem.Discriminator(64)
-net_tem_d = nn.DataParallel(net_tem_d)
+# net_tem_d = nn.DataParallel(net_tem_d)
 net_tem_d = net_tem_d.cuda() if cuda else net_tem_d
 
 # load loss
@@ -78,8 +78,8 @@ if cuda:
 
 # start training...
 print("Starting Training Loop...")
-max_epoch = config['train']['max_epoch']
-for epoch in range(max_epoch):
+num_epochs = config['train']['num_epochs']
+for epoch in range(num_epochs):
     for count, [[y_s, y_e, y], [l_s, l_e, x], [d_s, d_e, d_x], n] in enumerate(loader):
         net_col_g.train()
         net_col_d.train()
@@ -90,25 +90,25 @@ for epoch in range(max_epoch):
         net_tem_d.zero_grad()
 
         y_trans, _, _ = net_col_g(x, d_x, [d_s, d_e], [y_s, y_e])
-        y_trans.detach()
         lrs = torch.stack([l_s, x, l_e], dim=1)
-        yrs = torch.stack([y_s, y_trans, y_e], dim=1)
+        yrs = torch.stack([y_s, y_trans.detach(), y_e], dim=1)
         input_tem = torch.cat((lrs, yrs), dim=2)
         pre_tem = net_tem_g(input_tem)
 
-        real_y = torch.cat((y_trans.unsqueeze(1), y_s.unsqueeze(1), y_e.unsqueeze(1)), dim=1)
-        real_x = torch.cat((x.unsqueeze(1), l_s.unsqueeze(1), l_e.unsqueeze(1)), dim=1)
-        real = torch.cat((real_x, real_y), dim=2)
+        real_lrs = torch.stack([l_s, x, l_e], dim=1)
+        real_yrs = torch.stack([y_s, y_trans, y_e], dim=1)
+        real = torch.cat((real_lrs, real_yrs), dim=2)
 
         col_d_pre = net_col_d(x, y_trans)
         col_d_real = net_col_d(x, y)
         col_adv_loss = col_loss(col_d_real, True) + col_loss(col_d_pre, False)
 
-        tem_d_pre = net_tem_d(torch.cat((real_x, pre_tem), dim=2))
+        tem_d_pre = net_tem_d(torch.cat((real_lrs, pre_tem), dim=2))
         tem_d_real = net_tem_d(real)
         tem_adv_loss = tem_loss(tem_d_real, True) + tem_loss(tem_d_pre, False)
 
         loss_d = col_adv_loss + tem_adv_loss
+
         loss_d.backward()
 
         opt_col_d.step()
@@ -118,20 +118,18 @@ for epoch in range(max_epoch):
         net_tem_g.zero_grad()
 
         pre_tem = net_tem_g(input_tem)
-        input_tem_dis = torch.cat((real_x, pre_tem), dim=2)
+        input_tem_dis = torch.cat((real_lrs, pre_tem), dim=2)
         y_trans, y_sim, y_mid = net_col_g(x, d_x, [d_s, d_e], [y_s, y_e])
 
-        col_d_pre = net_col_d(d_x, y_trans)
-        tem_d_pre = net_tem_d(input_tem_dis)
-        col_d_pre.detach()
-        tem_d_pre.detach()
+        col_d_pre = net_col_d(d_x, y_trans).detach()
+        tem_d_pre = net_tem_d(input_tem_dis).detach()
 
         loss_adv = tem_loss(tem_d_pre, True) + col_loss(col_d_pre, True)
-
         y_pre = torch.split(pre_tem, 1, dim=1)[1].squeeze(dim=1)
         loss_tot = tot_loss(y_pre, y_sim, y_mid, y)
 
         loss_g = loss_tot + loss_adv
+
         loss_g.backward()
 
         opt_col_g.step()
@@ -144,4 +142,3 @@ for epoch in range(max_epoch):
     t = os.path.join(sf, 'epoch_tem_g_{}.pth'.format(str(epoch).zfill(3)))
     torch.save(net_tem_g.state_dict(), t)
     t = os.path.join(sf, 'epoch_tem_d_{}.pth'.format(str(epoch).zfill(3)))
-    torch.save(net_tem_d.state_dict(), t)
