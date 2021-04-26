@@ -36,20 +36,20 @@ data = Dataset(it, iz, cuda)
 loader = DataLoader(data, bs, cuda)
 # load color transform network
 net_col_g = col.Generator(2)
-# net_col_g = nn.DataParallel(net_col_g)
+net_col_g = nn.DataParallel(net_col_g)
 net_col_g = net_col_g.cuda() if cuda else net_col_g
 
 net_col_d = col.Discriminator()
-# net_col_d = nn.DataParallel(net_col_d)
+net_col_d = nn.DataParallel(net_col_d)
 net_col_d = net_col_d.cuda() if cuda else net_col_d
 
 # load temporal constraint network
 net_tem_g = tem.Generator(64)
-# net_tem_g = nn.DataParallel(net_tem_g)
+net_tem_g = nn.DataParallel(net_tem_g)
 net_tem_g = net_tem_g.cuda() if cuda else net_tem_g
 
 net_tem_d = tem.Discriminator(64)
-# net_tem_d = nn.DataParallel(net_tem_d)
+net_tem_d = nn.DataParallel(net_tem_d)
 net_tem_d = net_tem_d.cuda() if cuda else net_tem_d
 
 # load loss
