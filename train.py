@@ -91,11 +91,9 @@ for epoch in range(max_epoch):
 
         y_trans, _, _ = net_col_g(x, d_x, [d_s, d_e], [y_s, y_e])
         y_trans.detach()
-        input_tem = torch.cat(
-            (torch.cat((l_s, y_s), dim=1).unsqueeze(1), torch.cat(
-                (x, y_trans), dim=1).unsqueeze(1), torch.cat((l_e, y_e), dim=1).unsqueeze(1)),
-            dim=1,
-        )
+        lrs = torch.stack([l_s, x, l_e], dim=1)
+        yrs = torch.stack([y_s, y_trans, y_e], dim=1)
+        input_tem = torch.cat((lrs, yrs), dim=2)
         pre_tem = net_tem_g(input_tem)
 
         real_y = torch.cat((y_trans.unsqueeze(1), y_s.unsqueeze(1), y_e.unsqueeze(1)), dim=1)
