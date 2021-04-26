@@ -57,11 +57,9 @@ tr = []
 for [y_s, y_e, y], [l_s, l_e, x], [d_s, d_e, d_x], n in tqdm(loader):
     st = time.time()
     y_trans, y_sim, y_mid = net_col(x, d_x, [d_s, d_e], [y_s, y_e])
-    input_tem = torch.cat(
-        (torch.cat((l_s, y_s), dim=1).unsqueeze(1), torch.cat(
-            (x, y_trans), dim=1).unsqueeze(1), torch.cat((d_e, y_e), dim=1).unsqueeze(1)),
-        dim=1,
-    )
+    lrs = torch.stack([l_s, x, l_e], dim=1)
+    yrs = torch.stack([y_s, y_trans, y_e], dim=1)
+    input_tem = torch.cat((lrs, yrs), dim=2)
     pre_tem = net_tem(input_tem)
 
     et = time.time()
