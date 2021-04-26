@@ -8,20 +8,18 @@ class TotalLoss(nn.Module):
     def __init__(self):
         super(TotalLoss, self).__init__()
 
-        self.adv_loss = AdversarialLoss()
         self.l1_loss = nn.L1Loss()
         self.per_loss = PerceptualLoss()
         self.style_loss = StyleLoss()
         self.latent_loss = LatentLoss()
 
 
-def __call__(self, y_pre, y_sim, y_mid, y):
-    al = 1 * self.adv_loss(y_pre, True)
-    l1 = 10 * self.l1_loss(y_pre, y)
-    pl = self.per_loss(y_pre, y)
-    sl = 1000 * self.style_loss(y_pre, y)
-    ll = 1 * self.latent_loss(y_sim, y_mid, y)
-    return al + l1 + pl + sl + ll
+    def __call__(self, y_pre, y_sim, y_mid, y):
+        l1 = 10 * self.l1_loss(y_pre, y)
+        pl = self.per_loss(y_pre, y)
+        sl = 1000 * self.style_loss(y_pre, y)
+        ll = 1 * self.latent_loss(y_sim, y_mid, y)
+        return l1 + pl + sl + ll
 
 
 class AdversarialLoss(nn.Module):
